@@ -1,5 +1,5 @@
 import random
-from .poker_cards import CARD_DECK, CARD_VALUES
+from poker_cards import CARD_DECK, CARD_VALUES
 import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
@@ -23,7 +23,7 @@ class BlackjackEnv(gym.Env):
         self.observation_space = spaces.Dict({
             "own_hand_value": spaces.Discrete(32),
             "usable_aces": spaces.Discrete(2),
-            "dealer_up_card_value": spaces.Discrete(11)
+            "dealer_up_card_value": spaces.Discrete(12)
             })
 
     def reset(self, seed = None, options = None):
@@ -34,6 +34,7 @@ class BlackjackEnv(gym.Env):
         self.np_random.shuffle(self._shoe)
         self._player_hand.clear()
         self._dealer_hand.clear()
+        self._player_stands = False
 
         # 2. deal 2 cards to each player
         for i in range(2):
@@ -59,11 +60,15 @@ class BlackjackEnv(gym.Env):
         terminated = False
         truncated = False
         next_obs = self._get_obs()
+        info = self._get_info()
+
 
         # outcomes: -1 if player bust
         if self._is_bust(self._player_hand):
             terminated = True
             reward = -1
+            return next_obs, reward, terminated, truncated, info
+
 
         # outcomes: dealer play if player stands, 1 if win, -1 if lose, if player bj, dealer bj = 0, dealer no bj = 1.5
         if self._player_stands:
@@ -71,9 +76,7 @@ class BlackjackEnv(gym.Env):
             reward = self._decide_winner()
             terminated = True
 
-        # return next_state, reward, terminated, truncated, info
-        info = self._get_info()
-        return next_obs, reward, terminated, truncated, info
+        return next_obs, reward, terminated, truncated, info    
 
     def _get_obs(self):
         total, num_aces, num_usable_aces = self._evaluate_hand(self._player_hand)
@@ -125,7 +128,7 @@ class BlackjackEnv(gym.Env):
         # for S17: if total >= 17
         while True:
             total, aces, usable_aces = self._evaluate_hand(self._dealer_hand)
-            if total >= 17 and usable_aces == 0:
+            if total >= 17:
                 break
             self._dealer_hand.append(self._shoe.pop())
 
@@ -134,8 +137,12 @@ class BlackjackEnv(gym.Env):
         dealer_value, _, _ = self._evaluate_hand(self._dealer_hand)
 
         # outcomes: dealer play if player stands
+        # if this function is ran, player is not bust
         # player bj: dealer bj = 0, dealer no bj = 1.5
         # player no bj: dealer bust = 1, dealer bj = -1, dealer > player = -1, dealer < player = 1, dealer = player = 0
+
+        if self._is_bust(self._player_hand):
+            return -1
 
         if self._is_blackjack(self._player_hand):
             if self._is_blackjack(self._dealer_hand):
