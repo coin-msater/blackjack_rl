@@ -1,4 +1,5 @@
-from envs import BlackjackEnv, CARD_DECK, CARD_VALUES
+from envs.blackjack_env import BlackjackEnv
+from envs.poker_cards import CARD_DECK, CARD_VALUES
 
 n_decks = 1
 
